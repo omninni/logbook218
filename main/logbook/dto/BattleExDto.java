@@ -221,12 +221,16 @@ public class BattleExDto extends AbstractDto {
         private double[] damageRate;
 
         /** 攻撃シーケンス */
+        @Tag(35)
+        private List<AirBattleDto> airBase = null;
         @Tag(11)
         private AirBattleDto air = null;
         @Tag(12)
         private AirBattleDto air2 = null;
         @Tag(13)
         private List<BattleAtackDto> support = null;
+        @Tag(50)
+        private List<BattleAtackDto> openingTaisen = null;
         @Tag(14)
         private List<BattleAtackDto> opening = null;
         @Tag(15)
@@ -274,10 +278,20 @@ public class BattleExDto extends AbstractDto {
 
             // 攻撃シーケンスを読み取る //
 
+            // 基地航空隊
+            JsonValue air_base_attack = object.get("api_air_base_attack");
+            if (air_base_attack instanceof JsonArray) {
+                this.airBase = new ArrayList<>();
+                for (JsonValue elem : (JsonArray) air_base_attack) {
+                    JsonObject obj = (JsonObject) elem;
+                    this.airBase.add(new AirBattleDto(obj, isCombined, true));
+                }
+            }
+
             // 航空戦（通常）
             JsonObject kouku = object.getJsonObject("api_kouku");
             if (kouku != null) {
-                this.air = new AirBattleDto(kouku, isCombined);
+                this.air = new AirBattleDto(kouku, isCombined, false);
                 // 昼戦の触接はここ
                 this.touchPlane = this.air.touchPlane;
                 // 制空はここから取る
@@ -311,7 +325,10 @@ public class BattleExDto extends AbstractDto {
             // 航空戦（連合艦隊のみ？）
             JsonObject kouku2 = object.getJsonObject("api_kouku2");
             if (kouku2 != null)
-                this.air2 = new AirBattleDto(kouku2, isCombined);
+                this.air2 = new AirBattleDto(kouku2, isCombined, false);
+
+            // 開幕対潜
+            this.openingTaisen = BattleAtackDto.makeHougeki(object.get("api_opening_taisen"), kind.isOpeningSecond());
 
             // 開幕
             this.opening = BattleAtackDto.makeRaigeki(object.get("api_opening_atack"), kind.isOpeningSecond());
@@ -327,11 +344,15 @@ public class BattleExDto extends AbstractDto {
 
             // ダメージを反映 //
 
+            if (this.airBase != null)
+                for (AirBattleDto attack : this.airBase)
+                    this.doAtack(attack.atacks);
             if (this.air != null)
                 this.doAtack(this.air.atacks);
             this.doAtack(this.support);
             if (this.air2 != null)
                 this.doAtack(this.air2.atacks);
+            this.doAtack(this.openingTaisen);
             this.doAtack(this.opening);
             this.doAtack(this.hougeki);
             this.doAtack(this.hougeki1);
@@ -599,19 +620,34 @@ public class BattleExDto extends AbstractDto {
             return list.toArray(new BattleAtackDto[list.size()]);
         }
 
+        private BattleAtackDto[] getAirBaseBattlesArray() {
+            if (this.airBase == null) {
+                return null;
+            }
+            List<BattleAtackDto> arr = new ArrayList<>();
+            for (AirBattleDto dto : this.airBase) {
+                if (dto.atacks != null) {
+                    arr.addAll(dto.atacks);
+                }
+            }
+            return arr.toArray(new BattleAtackDto[0]);
+        }
+
         /**
          * 攻撃の全シーケンスを取得
-         * [ 航空戦1, 支援艦隊の攻撃, 航空戦2, 開幕, 夜戦, 砲撃戦1, 雷撃, 砲撃戦2, 砲撃戦3 ]
+         * [ 基地航空隊航空戦, 航空戦1, 支援艦隊の攻撃, 航空戦2, 開幕, 夜戦, 砲撃戦1, 雷撃, 砲撃戦2, 砲撃戦3 ]
          * 各戦闘がない場合はnullになる
          * @return
          */
         public BattleAtackDto[][] getAtackSequence() {
             return new BattleAtackDto[][] {
+                    this.getAirBaseBattlesArray(),
                     ((this.air == null) || (this.air.atacks == null)) ? null :
                             this.toArray(this.air.atacks),
                     this.support == null ? null : this.toArray(this.support),
                     ((this.air2 == null) || (this.air2.atacks == null)) ? null :
                             this.toArray(this.air2.atacks),
+                    this.openingTaisen == null ? null : this.toArray(this.openingTaisen),
                     this.opening == null ? null : this.toArray(this.opening),
                     this.hougeki == null ? null : this.toArray(this.hougeki),
                     this.hougeki1 == null ? null : this.toArray(this.hougeki1),
@@ -796,6 +832,14 @@ public class BattleExDto extends AbstractDto {
         }
 
         /**
+         * 開幕対潜
+         * @return openingTaisen
+         */
+        public List<BattleAtackDto> getOpeningTaisen() {
+            return this.openingTaisen;
+        }
+
+        /**
          * 開幕
          * @return opening
          */
@@ -855,6 +899,13 @@ public class BattleExDto extends AbstractDto {
          */
         public int[] getFlarePos() {
             return this.flarePos;
+        }
+
+        /**
+         * @return airBase
+         */
+        public List<AirBattleDto> getAirBase() {
+            return this.airBase;
         }
     }
 

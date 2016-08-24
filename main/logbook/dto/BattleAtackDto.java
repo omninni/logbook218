@@ -114,6 +114,7 @@ public class BattleAtackDto {
         }
         dto.origin = new int[idx];
         dto.ydam = new int[idx];
+        dto.critical = new int[idx];
         dto.ot = new int[idx];
 
         idx = 0;
@@ -124,7 +125,6 @@ public class BattleAtackDto {
         }
         dto.target = new int[idx];
         dto.damage = new int[idx];
-        dto.critical = new int[idx];
 
         for (int i = 0; i < 6; ++i) {
             int rai = rai_list.getInt(i + 1);
@@ -134,12 +134,12 @@ public class BattleAtackDto {
             if (rai > 0) {
                 dto.origin[originMap[i]] = i;
                 dto.ydam[originMap[i]] = ydam;
+                dto.critical[originMap[i]] = cl;
                 dto.ot[originMap[i]] = targetMap[rai - 1];
             }
             if (targetEnabled[i]) {
                 dto.target[targetMap[i]] = i;
                 dto.damage[targetMap[i]] = dam;
-                dto.critical[targetMap[i]] = cl;
             }
         }
 
@@ -147,9 +147,10 @@ public class BattleAtackDto {
     }
 
     private static BattleAtackDto makeAir(boolean friendAtack,
-            JsonArray plane_from, JsonArray dam_list, JsonArray cdam_list, JsonArray cl_list, JsonArray ccl_list) {
+            JsonArray plane_from, JsonArray dam_list, JsonArray cdam_list, JsonArray cl_list, JsonArray ccl_list,
+            boolean isBase) {
         BattleAtackDto dto = new BattleAtackDto();
-        dto.kind = AtackKind.AIR;
+        dto.kind = isBase ? AtackKind.AIRBASE : AtackKind.AIR;
         dto.friendAtack = friendAtack;
 
         int idx = 0;
@@ -228,7 +229,8 @@ public class BattleAtackDto {
      * @param combined
      * @return
      */
-    public static List<BattleAtackDto> makeAir(JsonValue plane_from, JsonValue raigeki, JsonValue combined) {
+    public static List<BattleAtackDto> makeAir(JsonValue plane_from, JsonValue raigeki, JsonValue combined,
+            boolean isBase) {
         if ((raigeki == null) || (raigeki == JsonValue.NULL) || (plane_from == null) || (plane_from == JsonValue.NULL))
             return null;
 
@@ -246,7 +248,12 @@ public class BattleAtackDto {
                 raigeki_obj.getJsonArray("api_edam"),
                 null,
                 raigeki_obj.getJsonArray("api_ecl_flag"),
-                null);
+                null,
+                isBase);
+
+        if (isBase) {
+            return Arrays.asList(new BattleAtackDto[] { fatack });
+        }
 
         BattleAtackDto eatack = makeAir(
                 false,
@@ -254,7 +261,8 @@ public class BattleAtackDto {
                 raigeki_obj.getJsonArray("api_fdam"),
                 fdamCombined,
                 raigeki_obj.getJsonArray("api_fcl_flag"),
-                fclCombined);
+                fclCombined,
+                false);
 
         return Arrays.asList(new BattleAtackDto[] { fatack, eatack });
     }
@@ -275,7 +283,7 @@ public class BattleAtackDto {
                 true,
                 raigeki_obj.getJsonArray("api_frai"),
                 raigeki_obj.getJsonArray("api_edam"),
-                raigeki_obj.getJsonArray("api_ecl"),
+                raigeki_obj.getJsonArray("api_fcl"),
                 raigeki_obj.getJsonArray("api_fydam"));
 
         if (second) {
@@ -286,7 +294,7 @@ public class BattleAtackDto {
                 false,
                 raigeki_obj.getJsonArray("api_erai"),
                 raigeki_obj.getJsonArray("api_fdam"),
-                raigeki_obj.getJsonArray("api_fcl"),
+                raigeki_obj.getJsonArray("api_ecl"),
                 raigeki_obj.getJsonArray("api_eydam"));
 
         if (second) {
